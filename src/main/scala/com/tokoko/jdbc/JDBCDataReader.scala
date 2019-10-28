@@ -4,19 +4,19 @@ import java.sql.{Connection, DriverManager, ResultSet}
 
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.sources.v2.reader.DataReader
-import org.apache.spark.sql.types.{BooleanType, ByteType, DataType, DateType, DecimalType, DoubleType, FloatType, IntegerType, LongType, ShortType, StringType, StructType, TimestampType}
+import org.apache.spark.sql.types.{BooleanType, ByteType, DateType, DecimalType, DoubleType, FloatType, IntegerType, LongType, ShortType, StringType, StructType, TimestampType}
+import Utils.getPredicateQuery
 
-class JDBCDataReader(driver: String, url: String, query: String, schema: String) extends DataReader[Row] {
+class JDBCDataReader(driver: String, url: String, query: String, schema: StructType, predicate: Option[String]) extends DataReader[Row] {
   var iterator: ResultSet = _
   var connection: Connection = _
-  val schemaType: StructType = DataType.fromJson(schema).asInstanceOf[StructType]
 
   override def next(): Boolean = {
     if(iterator == null) {
       try {
         Class.forName(driver)
         connection = DriverManager.getConnection(url)
-        iterator = connection.createStatement.executeQuery(query)
+        iterator = connection.createStatement.executeQuery(getPredicateQuery(query, predicate))
       } catch {
         case e: Exception => e.printStackTrace()
       }
@@ -25,7 +25,7 @@ class JDBCDataReader(driver: String, url: String, query: String, schema: String)
   }
 
   override def get(): Row = {
-    val data = schemaType.map(
+    val data = schema.map(
       f =>
         f.dataType match {
           case _: StringType => iterator.getString(f.name)

@@ -1,6 +1,8 @@
 package com.tokoko.jdbc
 
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, ObjectInputStream, ObjectOutputStream}
 import java.sql.DriverManager
+import java.util.Base64
 
 import org.apache.spark.sql.types._
 
@@ -62,7 +64,48 @@ object Utils {
 
   def isCommonTableExp(query: String): Boolean = {
     val seq = query.toLowerCase.split(" ").toSeq
-    seq(seq.indexWhere(p => p.endsWith("with")) + 2).startsWith("as")
+    val asIndex = seq.indexWhere(p => p.endsWith("with")) + 2
+    seq.size > asIndex && seq(asIndex).startsWith("as")
+  }
+
+  def getSchemaQuery(query: String): String = {
+    if (isCommonTableExp(query)) {
+      val first = query.substring(0, query.toLowerCase.indexOf("with"))
+      val middle = query.substring(query.toLowerCase.indexOf("with"), query.length)
+      var end = middle.substring(middle.indexOf(")") + 1, middle.length).replaceAll("""^\s+(?m)""", "")
+      while (!end.toLowerCase.startsWith("select"))
+        end = end.substring(end.indexOf(")") + 1, end.length).replaceAll("""^\s+(?m)""", "")
+      s"$first${middle.replace(end, s"SELECT * FROM ($end) METADATA WHERE 1 = 0")}"
+    }
+    else
+      s"select * from ($query) METADATA WHERE 1 = 0"
+  }
+
+  def getPredicateQuery(query: String, predicate: Option[String]): String = {
+    predicate match {
+      case Some(p) => s"select * from ($query) T WHERE $p"
+      case None => query
+    }
+  }
+
+  def serialize[T](obj: T): String = {
+    val aos = new ByteArrayOutputStream()
+    val oos = new ObjectOutputStream(aos)
+    oos.writeObject(obj)
+    oos.close()
+    val res = aos.toByteArray
+    aos.close()
+
+    Base64.getEncoder.encodeToString(res)
+  }
+
+  def deserialize[T](obj: String): T = {
+    val bais = new ByteArrayInputStream(Base64.getDecoder.decode(obj))
+    val ois = new ObjectInputStream(bais)
+    val res = ois.readObject.asInstanceOf[T]
+    bais.close()
+    ois.close()
+    res
   }
 
 }
