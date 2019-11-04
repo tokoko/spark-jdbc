@@ -1,25 +1,34 @@
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.types.{IntegerType, StructField, StructType}
 
 object Example extends App {
   val spark: SparkSession = SparkSession.builder()
     .appName("TestSession")
-    //.enableHiveSupport()
     .master("local[*]")
     .getOrCreate()
 
+  val url = "jdbc:sqlserver://HOSTNAME;user=user;password=password123;"
+  val query =
+    """
+      |WITH cte AS (
+      | SELECT ID
+      | FROM ListOfID
+      |)
+      |SELECT T.ID, T.NAME
+      |FROM Table T
+      | INNER JOIN cte as C ON T.ID = C.ID
+      |""".stripMargin
+  val schema = StructType(Seq(StructField("N", IntegerType)))
+  val driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver"
 
-  val query = "SELECT * FROM ***"
+  val predicates = List(
+    "T.ID < 1",
+    "T.ID BETWEEN 1 AND 10",
+    "T.ID > 10"
+  )
 
-  val url = "jdbc:sqlserver://***;user=***;password=***;"
+  import com.tokoko.jdbc._
 
-  val df = spark.read
-    //.option("schema", sp_schema.json)
-    .format("com.tokoko.jdbc")
-    .option("driver", "com.microsoft.sqlserver.jdbc.SQLServerDriver")
-    .option("url", url)
-    .option("query", query)
-    .load()
-
-  df.show()
-
+  spark.read
+    .jdbcv2(url, driver, query, predicates)
 }

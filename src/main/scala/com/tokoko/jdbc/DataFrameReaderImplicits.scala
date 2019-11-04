@@ -6,32 +6,26 @@ import Utils.serialize
 
 class DataFrameReaderImplicits(reader: DataFrameReader) {
 
-  def option[T](key: String, value: T): DataFrameReader = {
+  /*def option[T](key: String, value: T): DataFrameReader = {
     reader.option(key, serialize(value))
-  }
+  }*/
 
-  def jdbcv2(url: String, query: String, predicates: List[String]): DataFrame = {
+  def jdbcv2(url: String, driver: String, query: String, predicates: List[String]): DataFrame = {
     reader
       .option("predicates", serialize(predicates))
-      //.option("driver", JDBCUtils.getDriver(url))
-      .option("url", url)
-      .option("query", query)
-      .load()
+      .jdbcv2(url, driver, query)
   }
 
-  def jdbcv2(url: String, query: String, schema: StructType): DataFrame = {
+  def jdbcv2(url: String, driver: String, query: String, schema: StructType): DataFrame = {
     reader
       .schema(schema)
-      //.option("driver", JDBCUtils.getDriver(url))
-      .option("url", url)
-      .option("query", query)
-      .load()
+      .jdbcv2(url, driver, query)
   }
 
-  def jdbcv2(url: String, query: String): DataFrame = {
+  def jdbcv2(url: String, driver: String, query: String): DataFrame = {
     reader
-      .format("com.tbcbank.bigdata.framework.datasources.simplejdbc")
-      //.option("driver", JDBCUtils.getDriver(url))
+      .format("com.tokoko.jdbc")
+      .option("driver", driver)
       .option("url", url)
       .option("query", query)
       .load()
